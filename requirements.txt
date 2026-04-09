@@ -1,0 +1,21 @@
+# Core
+psycopg[binary]==3.2.13
+pydantic==2.7.1
+python-dotenv==1.0.1
+
+# HTTP & parsing
+httpx==0.27.0
+feedparser==6.0.11
+beautifulsoup4==4.12.3
+lxml==5.2.1
+
+# Telegram (MTProto, reads public channels)
+telethon==1.36.0
+
+# YouTube
+youtube-transcript-api==0.6.2
+
+# Utilities
+python-dateutil==2.9.0
+unidecode==1.3.8
+langdetect==1.0.9
