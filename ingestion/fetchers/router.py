@@ -4,6 +4,7 @@ import logging
 
 from ingestion.fetchers.base import BaseFetcher, FetchError
 from ingestion.fetchers.hackernews import HackerNewsFetcher
+from ingestion.fetchers.huggingface import HuggingFaceFetcher
 from ingestion.fetchers.manual_import import ManualImportFetcher
 from ingestion.fetchers.rss import RSSFetcher
 from ingestion.fetchers.stubs import LinkedInApiFetcher, XApiFetcher
@@ -20,6 +21,7 @@ _REGISTRY: dict[str, BaseFetcher] = {
         TelegramFetcher(),
         YouTubeFetcher(),
         HackerNewsFetcher(),
+        HuggingFaceFetcher(),
         WebScraperFetcher(),
         SiteChangeMonitorFetcher(),
         ManualImportFetcher(),
