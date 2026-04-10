@@ -11,10 +11,32 @@ from ingestion.db import repository as repo
 from ingestion.deduplicator import check_and_mark_duplicate
 from ingestion.fetchers.base import FetchError
 from ingestion.fetchers.router import get_fetcher
+from ingestion.models.content_item import RawFetchedItem
 from ingestion.models.source import Source
 from ingestion.normalizer import normalize
 
 logger = logging.getLogger(__name__)
+
+# ─────────────────────────────────────────────
+# PREFILTERS
+# ─────────────────────────────────────────────
+
+# Skip items whose normalized text is shorter than this after cleaning
+MIN_TEXT_LENGTH = 150
+
+# Markers that indicate a Telegram post is paid advertisement (Russian ad law)
+_TELEGRAM_AD_MARKERS = (
+    "erid:",          # Mandatory in Russian paid ads since 2023
+    "Реклама.",       # "Advertisement." disclosure
+    "ИНН ",           # Taxpayer ID in ad footer (space avoids false positives)
+    "промокод",       # "Promo code" — strong signal of sponsored post
+    "utm_source=telegram",  # Affiliate/tracking links back to Telegram
+)
+
+
+def _is_telegram_ad(raw_text: str) -> bool:
+    """Return True if a Telegram post appears to be paid advertisement."""
+    return any(marker in raw_text for marker in _TELEGRAM_AD_MARKERS)
 
 
 @dataclass
@@ -62,10 +84,26 @@ def run_source(conn: psycopg.Connection, source: Source) -> RunResult:
 
     for raw in raw_items:
         try:
-            # 1. Normalize
+            # 1. Telegram ad prefilter (check raw text before expensive ops)
+            if source.fetch_method == "telegram_api" and _is_telegram_ad(raw.raw_text or ""):
+                logger.debug("Skipping Telegram ad post from %s", source.canonical_key)
+                result.skipped += 1
+                continue
+
+            # 2. Normalize
             item = normalize(raw, source_language=source.language)
 
-            # 2. Deduplicate
+            # 3. Min-length prefilter (after normalization to measure clean text)
+            if len(item.normalized_text or "") < MIN_TEXT_LENGTH:
+                logger.debug(
+                    "Skipping short item from %s: %d chars",
+                    source.canonical_key,
+                    len(item.normalized_text or ""),
+                )
+                result.skipped += 1
+                continue
+
+            # 4. Deduplicate
             item = check_and_mark_duplicate(conn, item)
 
             if item.is_duplicate:
